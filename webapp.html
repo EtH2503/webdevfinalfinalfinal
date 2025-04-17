@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BYU Tic Tac Toe</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f4fb;
+      color: #002e5d;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #002e5d;
+    }
+
+    #difficultySelect {
+      margin-bottom: 15px;
+      font-size: 1rem;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid #002e5d;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      background: #002e5d;
+      padding: 5px;
+      border-radius: 12px;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: #ffffff;
+      border: 2px solid #002e5d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      font-weight: bold;
+      cursor: pointer;
+      position: relative;
+      color: #002e5d;
+    }
+
+    .cell.computer {
+      animation: slam 0.2s ease-out;
+    }
+
+    @keyframes slam {
+      0% {
+        transform: scale(3);
+        opacity: 0;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    #result {
+      position: absolute;
+      top: 40%;
+      z-index: 10;
+      font-size: 2rem;
+      font-weight: bold;
+      background: #ffffff;
+      color: #002e5d;
+      padding: 20px 40px;
+      border-radius: 15px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+      display: none;
+    }
+
+    #playAgain {
+      display: none;
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      background: #002e5d;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 9;
+    }
+  </style>
+</head>
+<body>
+  <h1>BYU Tic Tac Toe</h1>
+  <select id="difficultySelect">
+    <option value="hard">Hard (Smart)</option>
+    <option value="easy">Easy (Random)</option>
+  </select>
+  <div id="board"></div>
+  <div id="result"></div>
+  <button id="playAgain">Play Again</button>
+  <canvas id="confetti"></canvas>
+
+  <script>
+    const board = document.getElementById('board');
+    const result = document.getElementById('result');
+    const playAgain = document.getElementById('playAgain');
+    const difficultySelect = document.getElementById('difficultySelect');
+    const canvas = document.getElementById('confetti');
+    const ctx = canvas.getContext('2d');
+
+    let cells, gameOver, difficulty;
+    let firstPlayer = 'X';
+    let currentPlayer;
+    let lastWinner = null;
+
+    const winCombos = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
+    ];
+
+    function initGame() {
+      board.innerHTML = '';
+      result.textContent = '';
+      result.style.display = 'none';
+      playAgain.style.display = 'none';
+      clearCanvas();
+      cells = Array(9).fill('');
+      gameOver = false;
+      currentPlayer = firstPlayer;
+      difficulty = difficultySelect.value;
+
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.addEventListener('click', handleClick);
+        board.appendChild(cell);
+      }
+
+      if (currentPlayer === 'O') {
+        setTimeout(() => {
+          const move = difficulty === 'hard' ? findBestMove(cells) : findRandomMove(cells);
+          makeMove(move, 'O');
+        }, 300);
+      }
+    }
+
+    function handleClick(e) {
+      const idx = +e.target.dataset.index;
+      if (cells[idx] || gameOver || currentPlayer !== 'X') return;
+      makeMove(idx, 'X');
+      if (!gameOver) {
+        setTimeout(() => {
+          const move = difficulty === 'hard' ? findBestMove(cells) : findRandomMove(cells);
+          makeMove(move, 'O');
+        }, 300);
+      }
+    }
+
+    function makeMove(idx, player) {
+      cells[idx] = player;
+      const cell = board.children[idx];
+      cell.textContent = player;
+      if (player === 'O') cell.classList.add('computer');
+      checkGameOver();
+      currentPlayer = player === 'X' ? 'O' : 'X';
+    }
+
+    function checkGameOver() {
+      for (const combo of winCombos) {
+        const [a, b, c] = combo;
+        if (cells[a] && cells[a] === cells[b] && cells[b] === cells[c]) {
+          endGame(cells[a]);
+          return;
+        }
+      }
+      if (!cells.includes('')) {
+        endGame('TIE');
+      }
+    }
+
+    function endGame(winner) {
+      gameOver = true;
+      result.style.display = 'block';
+      if (winner === 'X') {
+        result.textContent = '🎉 You Win!';
+        startConfetti();
+        firstPlayer = 'O';
+        lastWinner = 'X';
+      } else if (winner === 'O') {
+        result.textContent = '😢 You Lose!';
+        firstPlayer = 'X';
+        lastWinner = 'O';
+      } else {
+        result.textContent = 'TIE';
+        lastWinner = null;
+        setTimeout(() => result.style.display = 'none', 1500);
+      }
+      playAgain.style.display = 'inline-block';
+    }
+
+    playAgain.addEventListener('click', () => {
+      if (lastWinner === 'X') firstPlayer = 'O';
+      else if (lastWinner === 'O') firstPlayer = 'X';
+      initGame();
+    });
+
+    function findBestMove(boardState) {
+      let bestScore = -Infinity;
+      let move;
+      for (let i = 0; i < 9; i++) {
+        if (boardState[i] === '') {
+          boardState[i] = 'O';
+          let score = minimax(boardState, 0, false);
+          boardState[i] = '';
+          if (score > bestScore) {
+            bestScore = score;
+            move = i;
+          }
+        }
+      }
+      return move;
+    }
+
+    function minimax(boardState, depth, isMaximizing) {
+      const winner = evaluate(boardState);
+      if (winner !== null) return winner;
+
+      if (isMaximizing) {
+        let best = -Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (boardState[i] === '') {
+            boardState[i] = 'O';
+            best = Math.max(best, minimax(boardState, depth + 1, false));
+            boardState[i] = '';
+          }
+        }
+        return best;
+      } else {
+        let best = Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (boardState[i] === '') {
+            boardState[i] = 'X';
+            best = Math.min(best, minimax(boardState, depth + 1, true));
+            boardState[i] = '';
+          }
+        }
+        return best;
+      }
+    }
+
+    function evaluate(boardState) {
+      for (const [a,b,c] of winCombos) {
+        if (boardState[a] && boardState[a] === boardState[b] && boardState[b] === boardState[c]) {
+          return boardState[a] === 'O' ? 1 : -1;
+        }
+      }
+      if (!boardState.includes('')) return 0;
+      return null;
+    }
+
+    function findRandomMove(boardState) {
+      const available = boardState.map((v, i) => v === '' ? i : null).filter(i => i !== null);
+      return available[Math.floor(Math.random() * available.length)];
+    }
+
+    // Confetti
+    let confettiParticles = [];
+    let confettiRunning = false;
+
+    function startConfetti() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      confettiParticles = Array.from({ length: 150 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height - canvas.height,
+        size: Math.random() * 8 + 2,
+        speedY: Math.random() * 3 + 2,
+        color: Math.random() > 0.5 ? '#002e5d' : '#FFFFFF'
+      }));
+      confettiRunning = true;
+      requestAnimationFrame(updateConfetti);
+    }
+
+    function updateConfetti() {
+      if (!confettiRunning) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      confettiParticles.forEach(p => {
+        p.y += p.speedY;
+        if (p.y > canvas.height) p.y = -10;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      });
+      requestAnimationFrame(updateConfetti);
+    }
+
+    function clearCanvas() {
+      confettiRunning = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    difficultySelect.addEventListener('change', () => {
+      initGame(); // Restart game on difficulty change
+    });
+
+    initGame();
+  </script>
+</body>
+</html>
